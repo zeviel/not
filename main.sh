@@ -6,4 +6,5 @@ docker run -d \
   -e SECRET_HOST="web.yota.ru" \
   -e TAG="b62807b6682914bcbd6ef432b20b89f4" \
   -e MTG_BIND_TO="0.0.0.0:443" \
+  -e PUBLIC_IPV4="paired.duckdns.org:443" \
   ghcr.io/mhsanaei/mtg-multi:latest
