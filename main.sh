@@ -46,7 +46,7 @@ sudo docker run -d \
     --restart=always \
     -p "${EXTERNAL_PORT}:${EXTERNAL_PORT}" \
     -e MTG_BIND="0.0.0.0:${EXTERNAL_PORT}" \
-    nineseconds/mtg:1 \
+    MHSanaei/mtg-multi \
     run \
     "${SECRET}" \
     "${AD_TAG}"
