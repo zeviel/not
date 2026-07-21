@@ -46,8 +46,8 @@ sudo docker run -d \
     --restart=always \
     -p "${EXTERNAL_PORT}:3128" \
     nineseconds/mtg:1 \
-    -bind 0.0.0.0:3128 \
-    -adtag "${AD_TAG}" \
+    --bind 0.0.0.0:3128 \
+    --adtag "${AD_TAG}" \
     "${SECRET}"
 
 echo -e "${GREEN}✅ Контейнер запущен!${NC}"
