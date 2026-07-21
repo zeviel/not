@@ -45,10 +45,11 @@ sudo docker run -d \
     --name="$CONTAINER_NAME" \
     --restart=always \
     -p "${EXTERNAL_PORT}:3128" \
+    -e MTG_BIND="0.0.0.0:3128" \
     nineseconds/mtg:1 \
-    --bind 0.0.0.0:3128 \
-    --adtag "${AD_TAG}" \
-    "${SECRET}"
+    run \
+    "${SECRET}" \
+    "${AD_TAG}"
 
 echo -e "${GREEN}✅ Контейнер запущен!${NC}"
 
