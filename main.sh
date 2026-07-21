@@ -1,34 +1,101 @@
 #!/bin/bash
 
-# Прерывать выполнение при любой ошибке
-set -e
+# ============================================
+# Установка MTG Proxy (nineseconds/mtg:2)
+# Домен: web.yota.ru
+# Порт: 8443
+# ============================================
 
-# 1. Создаем директорию для конфигурации, если её нет
-sudo mkdir -p /etc/mtg-proxy
+set -e  # Остановка при любой ошибке
 
-# 2. Записываем конфигурацию в файл config.toml
-sudo tee /etc/mtg-proxy/config.toml > /dev/null << 'EOF'
-secret = "eec741a811908c5b4238dee60fc14c784c7765622e796f74612e7275"
+# Цвета для вывода
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+NC='\033[0m' # No Color
+
+echo -e "${GREEN}============================================${NC}"
+echo -e "${GREEN}🚀 Установка MTG Proxy (web.yota.ru)${NC}"
+echo -e "${GREEN}============================================${NC}"
+docker stop mtproto-proxy-8443 && docker rm mtproto-proxy-8443
+
+# Конфигурация
+DOMAIN="web.yota.ru"
+EXTERNAL_PORT="8443"
+CONFIG_DIR="/etc/mtg-proxy"
+CONFIG_FILE="${CONFIG_DIR}/config.toml"
+CONTAINER_NAME="mtproto-proxy-8443"
+AD_TAG="b62807b6682914bcbd6ef432b20b89f4"
+
+# Шаг 1: Правильная генерация Fake-TLS секрета (ee + 16 бит хеш + hex домена)
+echo -e "${YELLOW}🔑 Шаг 1: Генерация секрета для домена ${DOMAIN}...${NC}"
+
+# Генерируем случайный 16-байтовый (32 символа) hex-хеш
+HEX_KEY="c741a811908c5b4238dee60fc14c784c"
+# Переводим домен в HEX-формат
+HEX_DOMAIN=$(echo -n "$DOMAIN" | xxd -p | tr -d '\n')
+# Собираем финальный SECRET
+SECRET="ee${HEX_KEY}${HEX_DOMAIN}"
+
+echo -e "${GREEN}✅ Секрет сгенерирован: ${SECRET}${NC}"
+
+# Шаг 2: Создание конфигурационного файла
+echo -e "${YELLOW}📁 Шаг 2: Создание конфигурационного файла...${NC}"
+
+# Создаём папку если её нет
+sudo mkdir -p "$CONFIG_DIR"
+
+# Записываем конфиг
+sudo tee "$CONFIG_FILE" > /dev/null <<EOF
+secret = "${SECRET}"
 bind-to = "0.0.0.0:3128"
-
-[promoted]
-tag = "b62807b6682914bcbd6ef432b20b89f4"
+ad-tag = "${AD_TAG}"
 EOF
 
-echo "Конфигурация успешно сохранена в /etc/mtg-proxy/config.toml"
+echo -e "${GREEN}✅ Конфиг создан: ${CONFIG_FILE}${NC}"
+cat "$CONFIG_FILE"
 
-# 3. Удаляем старый контейнер, если он существует (игнорируем ошибку, если контейнера нет)
-echo "Останавливаем и удаляем старый контейнер..."
-sudo docker rm -f mtproto-proxy-8443 2>/dev/null || true
+# Шаг 3: Остановка и удаление старого контейнера (если есть)
+echo -e "${YELLOW}🔄 Шаг 3: Остановка и удаление старого контейнера...${NC}"
+docker stop "$CONTAINER_NAME" 2>/dev/null || true
+docker rm "$CONTAINER_NAME" 2>/dev/null || true
 
-# 4. Запускаем новый контейнер с правильным синтаксисом
-echo "Запускаем новый контейнер mtg v2..."
+# Шаг 4: Запуск контейнера (Добавлен флаг -c для указания пути к конфигу)
+echo -e "${YELLOW}🐳 Шаг 4: Запуск контейнера...${NC}"
 sudo docker run -d \
-    --name="mtproto-proxy-8443" \
+    --name="$CONTAINER_NAME" \
     --restart=always \
-    -p "8443:3128" \
-    -v "/etc/mtg-proxy:/config:ro" \
-    nineseconds/mtg:1 \
-    run /config/config.toml
+    -p "${EXTERNAL_PORT}:3128" \
+    -v "${CONFIG_DIR}:/config:ro" \
+    nineseconds/mtg:2 \
+    run -c /config/config.toml
 
-echo "Прокси успешно развернут и запущен на порту 8443!"
+echo -e "${GREEN}✅ Контейнер запущен!${NC}"
+
+# Шаг 5: Проверка статуса
+echo -e "${YELLOW}🔍 Шаг 5: Проверка статуса...${NC}"
+sleep 2
+
+if docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
+    echo -e "${GREEN}✅ Контейнер работает:${NC}"
+    docker ps --filter "name=${CONTAINER_NAME}"
+else
+    echo -e "${RED}❌ Контейнер не запустился! Проверьте логи:${NC}"
+    docker logs "$CONTAINER_NAME"
+    exit 1
+fi
+
+# Шаг 6: Показ логов
+echo -e "${YELLOW}📋 Шаг 6: Последние логи...${NC}"
+docker logs "$CONTAINER_NAME" | tail -20
+
+# Шаг 7: Ссылка для подключения
+echo -e "${GREEN}============================================${NC}"
+echo -e "${GREEN}✅ Установка завершена!${NC}"
+echo -e "${GREEN}============================================${NC}"
+echo -e "📱 Ссылка для подключения:"
+echo -e "${YELLOW}tg://proxy?server=${DOMAIN}&port=${EXTERNAL_PORT}&secret=${SECRET}${NC}"
+echo ""
+echo -e "🔧 Или через IP:"
+echo -e "${YELLOW}tg://proxy?server=185.229.66.115&port=${EXTERNAL_PORT}&secret=${SECRET}${NC}"
+echo -e "${GREEN}============================================${NC}"
