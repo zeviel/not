@@ -28,7 +28,7 @@ sudo docker run -d \
     --restart=always \
     -p "8443:3128" \
     -v "/etc/mtg-proxy:/config:ro" \
-    nineseconds/mtg:2 \
+    nineseconds/mtg:1 \
     run /config/config.toml
 
 echo "Прокси успешно развернут и запущен на порту 8443!"
