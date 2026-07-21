@@ -5,7 +5,7 @@ docker rm -f mtproto-proxy-8443 2>/dev/null || true
 docker run -d \
   --name="mtproto-proxy-8443" \
   --restart=always \
-  -p "8443:8443" \
+  -p "8443:3128" \
   nineseconds/mtg:1 \
   run \
   "eec741a811908c5b4238dee60fc14c784c7765622e796f74612e7275" \
