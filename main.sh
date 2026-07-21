@@ -1,7 +1,10 @@
-# 1. Удаляем упавший контейнер
+# 1. Меняем рекламный токен в конфигурационном файле на сервере
+sudo sed -i 's/ad-tag = .*/ad-tag = "b62807b6682914bcbd6ef432b20b89f4"/' /etc/mtg-proxy/config.toml
+cat /etc/mtg-proxy/config.toml
+# 2. Удаляем старый контейнер
 docker rm -f mtproto-proxy-8443
 
-# 2. Запускаем заново с правильным синтаксисом аргументов
+# 3. Запускаем заново с обновленным конфигом
 sudo docker run -d \
     --name="mtproto-proxy-8443" \
     --restart=always \
