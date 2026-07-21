@@ -68,7 +68,7 @@ sudo docker run -d \
     -p "${EXTERNAL_PORT}:3128" \
     -v "${CONFIG_DIR}:/config:ro" \
     nineseconds/mtg:2 \
-    run -c /config/config.toml
+    run /config/config.toml
 
 echo -e "${GREEN}✅ Контейнер запущен!${NC}"
 
