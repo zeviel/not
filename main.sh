@@ -13,5 +13,5 @@ sudo docker run -d \
     --restart=always \
     -p "8443:3128" \
     -v "/etc/mtg-proxy:/config:ro" \
-    devgsc/mtg-multi:latest \
+    dolonet/mtg-multi:latest \
     run /config/config.toml
