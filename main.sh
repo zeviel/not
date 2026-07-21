@@ -17,6 +17,7 @@ NC='\033[0m' # No Color
 echo -e "${GREEN}============================================${NC}"
 echo -e "${GREEN}🚀 Установка MTG Proxy (web.yota.ru)${NC}"
 echo -e "${GREEN}============================================${NC}"
+docker stop mtproto-proxy-8443 && docker rm mtproto-proxy-8443
 
 # Конфигурация
 DOMAIN="web.yota.ru"
@@ -26,9 +27,16 @@ CONFIG_FILE="${CONFIG_DIR}/config.toml"
 CONTAINER_NAME="mtproto-proxy-8443"
 AD_TAG="b73eb664e3dd95631c0b2112643d28d8"
 
-# Шаг 1: Генерация секрета
+# Шаг 1: Правильная генерация Fake-TLS секрета (ee + 16 бит хеш + hex домена)
 echo -e "${YELLOW}🔑 Шаг 1: Генерация секрета для домена ${DOMAIN}...${NC}"
-SECRET=$(docker run --rm nineseconds/mtg:2 generate-secret --hex "$DOMAIN")
+
+# Генерируем случайный 16-байтовый (32 символа) hex-хеш
+HEX_KEY=$(openssl rand -hex 16)
+# Переводим домен в HEX-формат
+HEX_DOMAIN=$(echo -n "$DOMAIN" | xxd -p | tr -d '\n')
+# Собираем финальный SECRET
+SECRET="ee${HEX_KEY}${HEX_DOMAIN}"
+
 echo -e "${GREEN}✅ Секрет сгенерирован: ${SECRET}${NC}"
 
 # Шаг 2: Создание конфигурационного файла
@@ -37,7 +45,7 @@ echo -e "${YELLOW}📁 Шаг 2: Создание конфигурационно
 # Создаём папку если её нет
 sudo mkdir -p "$CONFIG_DIR"
 
-# Записываем конфиг (без BOM, в Linux это не проблема)
+# Записываем конфиг
 sudo tee "$CONFIG_FILE" > /dev/null <<EOF
 secret = "${SECRET}"
 bind-to = "0.0.0.0:3128"
@@ -52,7 +60,7 @@ echo -e "${YELLOW}🔄 Шаг 3: Остановка и удаление стар
 docker stop "$CONTAINER_NAME" 2>/dev/null || true
 docker rm "$CONTAINER_NAME" 2>/dev/null || true
 
-# Шаг 4: Запуск контейнера
+# Шаг 4: Запуск контейнера (Добавлен флаг -c для указания пути к конфигу)
 echo -e "${YELLOW}🐳 Шаг 4: Запуск контейнера...${NC}"
 sudo docker run -d \
     --name="$CONTAINER_NAME" \
@@ -60,7 +68,7 @@ sudo docker run -d \
     -p "${EXTERNAL_PORT}:3128" \
     -v "${CONFIG_DIR}:/config:ro" \
     nineseconds/mtg:2 \
-    run /config/config.toml
+    run -c /config/config.toml
 
 echo -e "${GREEN}✅ Контейнер запущен!${NC}"
 
