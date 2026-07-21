@@ -44,13 +44,12 @@ echo -e "${YELLOW}🐳 Шаг 3: Запуск контейнера mtg:1...${NC}
 sudo docker run -d \
     --name="$CONTAINER_NAME" \
     --restart=always \
-    -p "${EXTERNAL_PORT}:3128" \
-    -e MTG_BIND="0.0.0.0:3128" \
+    -p "${EXTERNAL_PORT}:${EXTERNAL_PORT}" \
+    -e MTG_BIND="0.0.0.0:${EXTERNAL_PORT}" \
     nineseconds/mtg:1 \
     run \
     "${SECRET}" \
     "${AD_TAG}"
-
 echo -e "${GREEN}✅ Контейнер запущен!${NC}"
 
 # Шаг 4: Проверка статуса
