@@ -1,32 +1,32 @@
 #!/bin/bash
 
-# 1. Получаем чистый вывод генератора Xray
+# 1. Получаем вывод генератора Xray
 XRAY_OUT=$(/usr/local/bin/xray x25519)
 
-# 2. Надежно достаем ключи силами самого Bash (без awk)
-if [[ $XRAY_OUT =~ Private\ key:\ +([A-Za-z0-9+/=]+) ]]; then
-    PRIVATE_KEY="${BASH_REMATCH[1]}"
-fi
+# 2. Парсим ключи с учетом специфического вывода вашего бинарника
+PRIVATE_KEY=$(echo "$XRAY_OUT" | grep -i "PrivateKey:" | sed 's/.*PrivateKey:\s*//')
+PUBLIC_KEY=$(echo "$XRAY_OUT" | grep -i "Password (Publickey):" | sed 's/.*Password (Publickey):\s*//')
 
-if [[ $XRAY_OUT =~ Public\ key:\ +([A-Za-z0-9+/=]+) ]]; then
-    PUBLIC_KEY="${BASH_REMATCH[1]}"
-fi
-
-# Проверка: если Xray не отдал ключи, выводим ошибку и стопаем
+# Если sed не отработал, пробуем альтернативный срез по пробелам
 if [ -z "$PRIVATE_KEY" ] || [ -z "$PUBLIC_KEY" ]; then
-    echo "❌ Критическая ошибка: Не удалось получить ключи из Xray!"
-    echo "Вывод команды был такой:"
+    PRIVATE_KEY=$(echo "$XRAY_OUT" | grep -i "PrivateKey:" | awk '{print $2}')
+    PUBLIC_KEY=$(echo "$XRAY_OUT" | grep -i "Password (Publickey):" | awk '{print $3}')
+fi
+
+# Жесткая проверка на пустоту
+if [ -z "$PRIVATE_KEY" ] || [ -z "$PUBLIC_KEY" ]; then
+    echo "❌ Ошибка парсинга ключей. Вывод бинарника:"
     echo "$XRAY_OUT"
     exit 1
 fi
 
-# 3. Сбор остальных параметров
+# 3. Системные переменные
 UUID=$(/usr/local/bin/xray uuid 2>/dev/null || echo "4b2e8d9a-1f7c-4c6b-9e2a-8f0d3c5b1a6e")
 SHORT_ID=$(openssl rand -hex 8)
 IP=$(curl -4 -s ifconfig.me)
 SNI_HOST="web.yota.ru"
 
-# 4. Запись конфигурации Xray
+# 4. Запись конфигурации в JSON
 cat > /usr/local/etc/xray/config.json <<JSON
 {
   "log": {
@@ -81,27 +81,26 @@ cat > /usr/local/etc/xray/config.json <<JSON
 }
 JSON
 
-# 5. Перезапуск службы
+# 5. Применение правил сети и перезапуск
 ufw allow 2018/tcp 2>/dev/null
 systemctl restart xray
 sleep 2
 
-# 6. Вывод корректной ссылки
+# 6. Проверка и вывод рабочей ссылки
 if systemctl is-active --quiet xray; then
     echo "========================================"
-    echo "✅ REALITY успешно запущен на порту 2018!"
+    echo "✅ REALITY запущен! Все ключи совпали."
     echo "========================================"
     echo ""
-    echo "📱 ССЫЛКА ДЛЯ КЛИЕНТА (С ВАЛИДНЫМИ КЛЮЧАМИ):"
+    echo "📱 ССЫЛКА ДЛЯ КЛИЕНТА:"
     echo "vless://$UUID@$IP:2018?type=tcp&security=reality&pbk=$PUBLIC_KEY&fp=chrome&sni=$SNI_HOST&sid=$SHORT_ID&flow=xtls-rprx-vision#MyYota"
     echo ""
-    echo "📋 Данные для проверки:"
+    echo "📋 Данные конфигурации:"
     echo "Address: $IP"
-    echo "SNI: $SNI_HOST"
-    echo "Public Key: $PUBLIC_KEY"
-    echo "Short ID: $SHORT_ID"
+    echo "Private Key в конфиге: $PRIVATE_KEY"
+    echo "Public Key в ссылке: $PUBLIC_KEY"
     echo "========================================"
 else
-    echo "❌ Ошибка конфигурации! Проверьте лог:"
+    echo "❌ Xray упал. Проверьте синтаксис логов:"
     journalctl -u xray -n 10 --no-pager
 fi
