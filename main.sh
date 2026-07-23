@@ -5,6 +5,7 @@ KEY_OUTPUT=$(/usr/local/bin/xray x25519)
 PRIVATE_KEY=$(echo "$KEY_OUTPUT" | grep -i "Private" | awk '{print $4}')
 PUBLIC_KEY=$(echo "$KEY_OUTPUT" | grep -i "Public" | awk '{print $4}')
 
+
 # Генерация ID
 UUID=$(/usr/local/bin/xray uuid)
 SHORT_ID=$(openssl rand -hex 8)
