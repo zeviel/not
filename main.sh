@@ -1,1 +1,1 @@
-bash <(curl -Ls https://raw.githubusercontent.com/mhsanaei/3x-ui/master/install.sh)
+bash <(wget -qO- https://raw.githubusercontent.com/svod011929/3x-ui-auto-installer/main/3x-ui-auto-install.sh)
