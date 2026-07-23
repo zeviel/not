@@ -7,14 +7,18 @@ systemctl stop xray 2>/dev/null
 
 # Генерируем ключи правильно
 KEY_OUTPUT=$(/usr/local/bin/xray x25519 2>&1)
-PRIVATE_KEY=$(echo "$KEY_OUTPUT" | grep -i "private" | sed 's/.*://' | tr -d ' ')
-PUBLIC_KEY=$(echo "$KEY_OUTPUT" | grep -i "public" | sed 's/.*://' | tr -d ' ')
+PRIVATE_KEY=$(echo "$KEY_OUTPUT" | grep -i "private" | sed 's/.*://' | tr -d ' ' | tr -d '-' | tr -d '_' | tr -d '=')
+PUBLIC_KEY=$(echo "$KEY_OUTPUT" | grep -i "public" | sed 's/.*://' | tr -d ' ' | tr -d '-' | tr -d '_' | tr -d '=')
 
-# Проверяем, что ключи не пустые
+# Проверяем, что ключи не пустые и содержат только допустимые символы
 if [ -z "$PRIVATE_KEY" ] || [ -z "$PUBLIC_KEY" ]; then
     echo "❌ Ошибка генерации ключей!"
     exit 1
 fi
+
+# Дополнительная очистка от любых других спецсимволов
+PRIVATE_KEY=$(echo "$PRIVATE_KEY" | sed 's/[^A-Za-z0-9]//g')
+PUBLIC_KEY=$(echo "$PUBLIC_KEY" | sed 's/[^A-Za-z0-9]//g')
 
 echo "✅ Private Key: $PRIVATE_KEY"
 echo "✅ Public Key:  $PUBLIC_KEY"
@@ -87,6 +91,7 @@ echo "🔍 Проверяем конфиг..."
 
 if [ $? -ne 0 ]; then
     echo "❌ Ошибка в конфиге!"
+    echo "Проверьте содержимое:"
     cat /usr/local/etc/xray/config.json
     exit 1
 fi
@@ -113,7 +118,7 @@ if systemctl is-active --quiet xray; then
     echo "========================================"
     
     # Сохраняем в файл
-    cat > /root/reality-info.txt <<EOF
+    cat > /root/reality-info.txt <<EOF2
 ========================================
 VLESS REALITY - web.yota.ru
 ========================================
@@ -127,9 +132,9 @@ Private Key: ${PRIVATE_KEY}
 Short ID: ${SHORT_ID}
 SNI: web.yota.ru
 ========================================
-EOF
+EOF2
     echo "💾 Данные сохранены в: /root/reality-info.txt"
 else
     echo "❌ Xray не запустился. Логи:"
     journalctl -u xray -n 10 --no-pager
-fi
+fiэ
