@@ -1,84 +1,39 @@
 #!/bin/bash
 
 echo "🔄 Генерирую ключи..."
+KEY_OUTPUT=$(/usr/local/bin/xray x25519)
+PRIVATE_KEY=$(echo "$KEY_OUTPUT" | grep "Private" | awk '{print $3}')
+PUBLIC_KEY=$(echo "$KEY_OUTPUT" | grep "Public" | awk '{print $3}')
 
-# Генерируем ключи и проверяем
-KEY_OUTPUT=$(/usr/local/bin/xray x25519 2>/dev/null)
-if [ -z "$KEY_OUTPUT" ]; then
-    echo "❌ Ошибка: Xray не найден или не работает"
+# Убираем возможные пробелы
+PUBLIC_KEY=$(echo "$PUBLIC_KEY" | tr -d ' ')
+PRIVATE_KEY=$(echo "$PRIVATE_KEY" | tr -d ' ')
+
+echo "✅ Public Key: $PUBLIC_KEY"
+
+if [[ "$PUBLIC_KEY" == *" "* ]]; then
+    echo "❌ Public Key содержит пробел! Исправьте вручную."
+    echo "Сгенерируйте ключи командой: /usr/local/bin/xray x25519"
     exit 1
 fi
 
-PRIVATE_KEY=$(echo "$KEY_OUTPUT" | grep -i "private" | awk '{print $NF}')
-PUBLIC_KEY=$(echo "$KEY_OUTPUT" | grep -i "public" | awk '{print $NF}')
+echo "📝 Обновляю конфиг..."
 
-# Проверяем, что ключи не содержат дефисов
-if [[ "$PRIVATE_KEY" == *"-"* ]] || [[ "$PUBLIC_KEY" == *"-"* ]]; then
-    echo "❌ Ключи содержат недопустимые символы!"
-    echo "Private: $PRIVATE_KEY"
-    echo "Public:  $PUBLIC_KEY"
-    echo "Попробуйте сгенерировать ключи вручную:"
-    echo "/usr/local/bin/xray x25519"
-    exit 1
-fi
+sed -i "s/\"privateKey\": \".*\"/\"privateKey\": \"$PRIVATE_KEY\"/" /usr/local/etc/xray/config.json
+sed -i "s/\"publicKey\": \".*\"/\"publicKey\": \"$PUBLIC_KEY\"/" /usr/local/etc/xray/config.json
 
-echo "✅ Private Key: $PRIVATE_KEY"
-echo "✅ Public Key:  $PUBLIC_KEY"
+echo "🚀 Перезапускаю Xray..."
+systemctl restart xray
+sleep 2
 
-echo "📝 Создаю конфиг..."
-
-cat > /usr/local/etc/xray/config.json <<EOF
-{
-  "log": {"loglevel": "warning"},
-  "inbounds": [{
-    "port": 2018,
-    "protocol": "vless",
-    "settings": {
-      "clients": [{"id": "c4ba5684-4909-46b0-b0ce-40e848a17a4a", "flow": "xtls-rprx-vision", "email": "user1"}],
-      "decryption": "none"
-    },
-    "streamSettings": {
-      "network": "tcp",
-      "security": "reality",
-      "realitySettings": {
-        "dest": "web.yota.ru:443",
-        "serverNames": ["web.yota.ru"],
-        "privateKey": "$PRIVATE_KEY",
-        "shortIds": ["77c6dc39379611b6"],
-        "settings": {"publicKey": "$PUBLIC_KEY", "fingerprint": "chrome"}
-      }
-    },
-    "sniffing": {"enabled": true, "destOverride": ["http", "tls"]}
-  }],
-  "outbounds": [
-    {"protocol": "freedom", "tag": "direct"},
-    {"protocol": "blackhole", "tag": "block"}
-  ]
-}
-EOF
-
-echo "✅ Конфиг создан"
-
-echo "🔍 Проверяю конфиг..."
-/usr/local/bin/xray -config /usr/local/etc/xray/config.json -test
-
-if [ $? -eq 0 ]; then
-    echo "✅ Конфиг верный!"
-    echo "🚀 Перезапускаю Xray..."
-    systemctl restart xray
-    sleep 2
-    
-    if systemctl is-active --quiet xray; then
-        echo "✅ Xray запущен!"
-        echo ""
-        echo "========================================"
-        echo "📱 ССЫЛКА ДЛЯ КЛИЕНТА:"
-        echo "vless://c4ba5684-4909-46b0-b0ce-40e848a17a4a@185.229.66.115:2018?type=tcp&security=reality&pbk=$PUBLIC_KEY&fp=chrome&sni=web.yota.ru&sid=77c6dc39379611b6&flow=xtls-rprx-vision#MyReality"
-        echo "========================================"
-    else
-        echo "❌ Xray не запустился. Логи:"
-        journalctl -u xray -n 10 --no-pager
-    fi
+if systemctl is-active --quiet xray; then
+    echo "✅ Xray работает!"
+    echo ""
+    echo "========================================"
+    echo "📱 ССЫЛКА ДЛЯ КЛИЕНТА:"
+    echo "vless://c4ba5684-4909-46b0-b0ce-40e848a17a4a@185.229.66.115:2018?type=tcp&security=reality&pbk=$PUBLIC_KEY&fp=chrome&sni=web.yota.ru&sid=77c6dc39379611b6&flow=xtls-rprx-vision#MyReality"
+    echo "========================================"
 else
-    echo "❌ Ошибка в конфиге!"
+    echo "❌ Ошибка! Проверьте логи:"
+    journalctl -u xray -n 10 --no-pager
 fi
