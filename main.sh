@@ -1,33 +1,31 @@
 #!/bin/bash
 
-# 1. Получаем вывод генератора Xray
-XRAY_OUT=$(/usr/local/bin/xray x25519)
+echo "🔧 Генерируем новые ключи..."
 
-# 2. Парсим ключи с учетом специфического вывода вашего бинарника
-PRIVATE_KEY=$(echo "$XRAY_OUT" | grep -i "PrivateKey:" | sed 's/.*PrivateKey:\s*//')
-PUBLIC_KEY=$(echo "$XRAY_OUT" | grep -i "Password (Publickey):" | sed 's/.*Password (Publickey):\s*//')
+# Останавливаем Xray
+systemctl stop xray 2>/dev/null
 
-# Если sed не отработал, пробуем альтернативный срез по пробелам
+# Генерируем ключи правильно
+KEY_OUTPUT=$(/usr/local/bin/xray x25519 2>&1)
+PRIVATE_KEY=$(echo "$KEY_OUTPUT" | grep -i "private" | sed 's/.*://' | tr -d ' ')
+PUBLIC_KEY=$(echo "$KEY_OUTPUT" | grep -i "public" | sed 's/.*://' | tr -d ' ')
+
+# Проверяем, что ключи не пустые
 if [ -z "$PRIVATE_KEY" ] || [ -z "$PUBLIC_KEY" ]; then
-    PRIVATE_KEY=$(echo "$XRAY_OUT" | grep -i "PrivateKey:" | awk '{print $2}')
-    PUBLIC_KEY=$(echo "$XRAY_OUT" | grep -i "Password (Publickey):" | awk '{print $3}')
-fi
-
-# Жесткая проверка на пустоту
-if [ -z "$PRIVATE_KEY" ] || [ -z "$PUBLIC_KEY" ]; then
-    echo "❌ Ошибка парсинга ключей. Вывод бинарника:"
-    echo "$XRAY_OUT"
+    echo "❌ Ошибка генерации ключей!"
     exit 1
 fi
 
-# 3. Системные переменные
-UUID=$(/usr/local/bin/xray uuid 2>/dev/null || echo "4b2e8d9a-1f7c-4c6b-9e2a-8f0d3c5b1a6e")
+echo "✅ Private Key: $PRIVATE_KEY"
+echo "✅ Public Key:  $PUBLIC_KEY"
+
+# Генерируем UUID и Short ID
+UUID=$(/usr/local/bin/xray uuid)
 SHORT_ID=$(openssl rand -hex 8)
 IP=$(curl -4 -s ifconfig.me)
-SNI_HOST="web.yota.ru"
 
-# 4. Запись конфигурации в JSON
-cat > /usr/local/etc/xray/config.json <<JSON
+# Создаём правильный конфиг
+cat > /usr/local/etc/xray/config.json <<EOF
 {
   "log": {
     "loglevel": "warning"
@@ -39,9 +37,9 @@ cat > /usr/local/etc/xray/config.json <<JSON
       "settings": {
         "clients": [
           {
-            "id": "$UUID",
+            "id": "${UUID}",
             "flow": "xtls-rprx-vision",
-            "email": "user1"
+            "email": "user1@example.com"
           }
         ],
         "decryption": "none"
@@ -50,25 +48,23 @@ cat > /usr/local/etc/xray/config.json <<JSON
         "network": "tcp",
         "security": "reality",
         "realitySettings": {
-          "dest": "$SNI_HOST:443",
+          "dest": "web.yota.ru:443",
           "serverNames": [
-            "$SNI_HOST"
+            "web.yota.ru"
           ],
-          "privateKey": "$PRIVATE_KEY",
+          "privateKey": "${PRIVATE_KEY}",
           "shortIds": [
-            "$SHORT_ID"
+            "${SHORT_ID}"
           ],
           "settings": {
+            "publicKey": "${PUBLIC_KEY}",
             "fingerprint": "chrome"
           }
         }
       },
       "sniffing": {
         "enabled": true,
-        "destOverride": [
-          "http",
-          "tls"
-        ]
+        "destOverride": ["http", "tls"]
       }
     }
   ],
@@ -76,31 +72,64 @@ cat > /usr/local/etc/xray/config.json <<JSON
     {
       "protocol": "freedom",
       "tag": "direct"
+    },
+    {
+      "protocol": "blackhole",
+      "tag": "block"
     }
   ]
 }
-JSON
+EOF
 
-# 5. Применение правил сети и перезапуск
-ufw allow 2018/tcp 2>/dev/null
-systemctl restart xray
+# Проверяем конфиг
+echo "🔍 Проверяем конфиг..."
+/usr/local/bin/xray -config /usr/local/etc/xray/config.json -test
+
+if [ $? -ne 0 ]; then
+    echo "❌ Ошибка в конфиге!"
+    cat /usr/local/etc/xray/config.json
+    exit 1
+fi
+
+# Запускаем Xray
+systemctl start xray
 sleep 2
 
-# 6. Проверка и вывод рабочей ссылки
 if systemctl is-active --quiet xray; then
+    echo "✅ Xray успешно запущен!"
+    echo ""
     echo "========================================"
-    echo "✅ REALITY запущен! Все ключи совпали."
+    echo "📱 ССЫЛКА ДЛЯ КЛИЕНТА (скопируйте целиком):"
+    echo "vless://${UUID}@${IP}:2018?type=tcp&security=reality&pbk=${PUBLIC_KEY}&fp=chrome&sni=web.yota.ru&sid=${SHORT_ID}&flow=xtls-rprx-vision#MyYota"
     echo "========================================"
     echo ""
-    echo "📱 ССЫЛКА ДЛЯ КЛИЕНТА:"
-    echo "vless://$UUID@$IP:2018?type=tcp&security=reality&pbk=$PUBLIC_KEY&fp=chrome&sni=$SNI_HOST&sid=$SHORT_ID&flow=xtls-rprx-vision#MyYota"
-    echo ""
-    echo "📋 Данные конфигурации:"
-    echo "Address: $IP"
-    echo "Private Key в конфиге: $PRIVATE_KEY"
-    echo "Public Key в ссылке: $PUBLIC_KEY"
+    echo "📋 Данные для ручного ввода:"
+    echo "Address: ${IP}"
+    echo "Port: 2018"
+    echo "UUID: ${UUID}"
+    echo "Public Key: ${PUBLIC_KEY}"
+    echo "Short ID: ${SHORT_ID}"
+    echo "SNI: web.yota.ru"
     echo "========================================"
+    
+    # Сохраняем в файл
+    cat > /root/reality-info.txt <<EOF
+========================================
+VLESS REALITY - web.yota.ru
+========================================
+vless://${UUID}@${IP}:2018?type=tcp&security=reality&pbk=${PUBLIC_KEY}&fp=chrome&sni=web.yota.ru&sid=${SHORT_ID}&flow=xtls-rprx-vision#MyYota
+========================================
+IP: ${IP}
+Port: 2018
+UUID: ${UUID}
+Public Key: ${PUBLIC_KEY}
+Private Key: ${PRIVATE_KEY}
+Short ID: ${SHORT_ID}
+SNI: web.yota.ru
+========================================
+EOF
+    echo "💾 Данные сохранены в: /root/reality-info.txt"
 else
-    echo "❌ Xray упал. Проверьте синтаксис логов:"
+    echo "❌ Xray не запустился. Логи:"
     journalctl -u xray -n 10 --no-pager
 fi
