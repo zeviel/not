@@ -1,34 +1,25 @@
 #!/bin/bash
 
-echo "🔧 Генерируем новые ключи..."
+echo "🔧 Генерация новых ключей..."
 
-# Останавливаем Xray
 systemctl stop xray 2>/dev/null
 
-# Генерируем ключи правильно
 KEY_OUTPUT=$(/usr/local/bin/xray x25519 2>&1)
-PRIVATE_KEY=$(echo "$KEY_OUTPUT" | grep -i "private" | sed 's/.*://' | tr -d ' ' | tr -d '-' | tr -d '_' | tr -d '=')
-PUBLIC_KEY=$(echo "$KEY_OUTPUT" | grep -i "public" | sed 's/.*://' | tr -d ' ' | tr -d '-' | tr -d '_' | tr -d '=')
+PRIVATE_KEY=$(echo "$KEY_OUTPUT" | grep -i "private" | sed 's/.*://' | tr -d ' -_=' | sed 's/[^A-Za-z0-9]//g')
+PUBLIC_KEY=$(echo "$KEY_OUTPUT" | grep -i "public" | sed 's/.*://' | tr -d ' -_=' | sed 's/[^A-Za-z0-9]//g')
 
-# Проверяем, что ключи не пустые и содержат только допустимые символы
 if [ -z "$PRIVATE_KEY" ] || [ -z "$PUBLIC_KEY" ]; then
     echo "❌ Ошибка генерации ключей!"
     exit 1
 fi
 
-# Дополнительная очистка от любых других спецсимволов
-PRIVATE_KEY=$(echo "$PRIVATE_KEY" | sed 's/[^A-Za-z0-9]//g')
-PUBLIC_KEY=$(echo "$PUBLIC_KEY" | sed 's/[^A-Za-z0-9]//g')
-
 echo "✅ Private Key: $PRIVATE_KEY"
-echo "✅ Public Key:  $PUBLIC_KEY"
+echo "✅ Public Key: $PUBLIC_KEY"
 
-# Генерируем UUID и Short ID
 UUID=$(/usr/local/bin/xray uuid)
 SHORT_ID=$(openssl rand -hex 8)
 IP=$(curl -4 -s ifconfig.me)
 
-# Создаём правильный конфиг
 cat > /usr/local/etc/xray/config.json <<EOF
 {
   "log": {
@@ -85,18 +76,14 @@ cat > /usr/local/etc/xray/config.json <<EOF
 }
 EOF
 
-# Проверяем конфиг
 echo "🔍 Проверяем конфиг..."
 /usr/local/bin/xray -config /usr/local/etc/xray/config.json -test
 
 if [ $? -ne 0 ]; then
     echo "❌ Ошибка в конфиге!"
-    echo "Проверьте содержимое:"
-    cat /usr/local/etc/xray/config.json
     exit 1
 fi
 
-# Запускаем Xray
 systemctl start xray
 sleep 2
 
@@ -104,7 +91,7 @@ if systemctl is-active --quiet xray; then
     echo "✅ Xray успешно запущен!"
     echo ""
     echo "========================================"
-    echo "📱 ССЫЛКА ДЛЯ КЛИЕНТА (скопируйте целиком):"
+    echo "📱 ССЫЛКА ДЛЯ КЛИЕНТА:"
     echo "vless://${UUID}@${IP}:2018?type=tcp&security=reality&pbk=${PUBLIC_KEY}&fp=chrome&sni=web.yota.ru&sid=${SHORT_ID}&flow=xtls-rprx-vision#MyYota"
     echo "========================================"
     echo ""
@@ -117,7 +104,6 @@ if systemctl is-active --quiet xray; then
     echo "SNI: web.yota.ru"
     echo "========================================"
     
-    # Сохраняем в файл
     cat > /root/reality-info.txt <<EOF2
 ========================================
 VLESS REALITY - web.yota.ru
@@ -137,4 +123,4 @@ EOF2
 else
     echo "❌ Xray не запустился. Логи:"
     journalctl -u xray -n 10 --no-pager
-fiэ
+fi
