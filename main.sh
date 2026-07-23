@@ -2,28 +2,30 @@
 
 echo "🔧 Генерация новых ключей..."
 
-# Останавливаем службу
+# Останавливаем службу перед настройкой
 systemctl stop xray 2>/dev/null
 
-# Корректное извлечение ключей (без удаления символов / и +)
+# Универсальная генерация ключей (по номерам строк, без привязки к языку)
 KEY_OUTPUT=$(/usr/local/bin/xray x25519 2>&1)
-PRIVATE_KEY=$(echo "$KEY_OUTPUT" | grep -i "private" | awk '{print $3}')
-PUBLIC_KEY=$(echo "$KEY_OUTPUT" | grep -i "public" | awk '{print $3}')
+PRIVATE_KEY=$(echo "$KEY_OUTPUT" | sed -n '1p' | tr -d ' \r\n' | cut -d':' -f2)
+PUBLIC_KEY=$(echo "$KEY_OUTPUT" | sed -n '2p' | tr -d ' \r\n' | cut -d':' -f2)
 
 if [ -z "$PRIVATE_KEY" ] || [ -z "$PUBLIC_KEY" ]; then
     echo "❌ Ошибка генерации ключей!"
+    echo "Вывод команды xray:"
+    echo "$KEY_OUTPUT"
     exit 1
 fi
 
 echo "✅ Private Key: $PRIVATE_KEY"
 echo "✅ Public Key: $PUBLIC_KEY"
 
-# Генерация параметров
+# Генерация параметров сети
 UUID=$(/usr/local/bin/xray uuid)
 SHORT_ID=$(openssl rand -hex 8)
 IP=$(curl -4 -s ifconfig.me)
 
-# Создание конфигурации JSON
+# Создание конфигурационного файла JSON
 cat > /usr/local/etc/xray/config.json <<EOF
 {
   "log": {
