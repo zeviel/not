@@ -1,1 +1,5 @@
-bash <(wget -qO- https://raw.githubusercontent.com/svod011929/3x-ui-auto-installer/main/3x-ui-auto-install.sh)
+# Клонирование и запуск
+git clone https://github.com/0xevn/xray-reality-setup.git
+cd xray-reality-setup
+chmod +x xray-setup.sh
+sudo sh xray-setup.sh
