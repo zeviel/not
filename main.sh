@@ -2,22 +2,28 @@
 
 echo "🔄 Генерирую ключи..."
 KEY_OUTPUT=$(/usr/local/bin/xray x25519)
-PRIVATE_KEY=$(echo "$KEY_OUTPUT" | grep "Private" | awk '{print $3}')
-PUBLIC_KEY=$(echo "$KEY_OUTPUT" | grep "Public" | awk '{print $3}')
+
+# Извлекаем ключи по ключевым словам (учитывая русский и английский варианты)
+PRIVATE_KEY=$(echo "$KEY_OUTPUT" | grep -E -i "(private|закрытый)" | awk '{print $NF}')
+PUBLIC_KEY=$(echo "$KEY_OUTPUT" | grep -E -i "(public|открытый)" | awk '{print $NF}')
 
 echo "✅ Private Key: $PRIVATE_KEY"
 echo "✅ Public Key:  $PUBLIC_KEY"
 
-# Проверяем, что ключи не пустые
+# Резервный метод извлечения, если grep не сработал
 if [ -z "$PRIVATE_KEY" ] || [ -z "$PUBLIC_KEY" ]; then
-    echo "❌ Ключи пустые! Попробуйте сгенерировать вручную:"
-    echo "/usr/local/bin/xray x25519"
-    exit 1
+    echo "❌ Ошибка автоматического извлечения! Пробуем альтернативный метод..."
+    PRIVATE_KEY=$(echo "$KEY_OUTPUT" | sed -n '1p' | awk '{print $NF}')
+    PUBLIC_KEY=$(echo "$KEY_OUTPUT" | sed -n '2p' | awk '{print $NF}')
+    
+    if [ -z "$PRIVATE_KEY" ] || [ -z "$PUBLIC_KEY" ]; then
+        echo "❌ Ключи все еще пустые! Сгенерируйте вручную: /usr/local/bin/xray x25519"
+        exit 1
+    fi
 fi
 
-echo "📝 Создаю конфиг..."
+echo "📝 Создаю конфиг с портом 2018..."
 
-# Удаляем старый конфиг
 rm -f /usr/local/etc/xray/config.json
 
 cat > /usr/local/etc/xray/config.json <<EOF
@@ -75,30 +81,19 @@ echo "🔍 Проверяю конфиг..."
 
 if [ $? -eq 0 ]; then
     echo "✅ Конфиг верный!"
-    echo "🚀 Запускаю Xray..."
-    systemctl stop xray 2>/dev/null
-    pkill -f xray 2>/dev/null
-    systemctl start xray 2>/dev/null
+    echo "🚀 Перезапускаю сервис Xray..."
+    systemctl restart xray 2>/dev/null || (pkill -f xray; /usr/local/bin/xray -config /usr/local/etc/xray/config.json &)
     sleep 3
     
-    if systemctl is-active --quiet xray; then
-        echo "✅ Xray работает!"
-        echo ""
-        echo "========================================"
-        echo "📱 ССЫЛКА ДЛЯ КЛИЕНТА:"
-        echo "vless://c4ba5684-4909-46b0-b0ce-40e848a17a4a@185.229.66.115:2018?type=tcp&security=reality&pbk=$PUBLIC_KEY&fp=chrome&sni=web.yota.ru&sid=77c6dc39379611b6&flow=xtls-rprx-vision#MyReality"
-        echo "========================================"
-        echo ""
-        echo "📋 Данные сохранены в: /root/reality-info.txt"
-        cat > /root/reality-info.txt <<INFO
-vless://c4ba5684-4909-46b0-b0ce-40e848a17a4a@185.229.66.115:2018?type=tcp&security=reality&pbk=$PUBLIC_KEY&fp=chrome&sni=web.yota.ru&sid=77c6dc39379611b6&flow=xtls-rprx-vision#MyReality
+    echo "========================================"
+    echo "📱 ВАША ССЫЛКА ДЛЯ КЛИЕНТА (ПОРТ 2018):"
+    echo "vless://c4ba5684-4909-46b0-b0ce-40e848a17a4a@185.229.66.115:2018?type=tcp&security=reality&pbk=$PUBLIC_KEY&fp=chrome&sni=web.yota.ru&sid=77c6dc39379611b6&flow=xtls-rprx-vision#BCS_Reality"
+    echo "========================================"
+    echo ""
+    echo "📋 Данные также сохранены в: /root/reality-info.txt"
+    cat > /root/reality-info.txt <<INFO
+vless://c4ba5684-4909-46b0-b0ce-40e848a17a4a@185.229.66.115:2018?type=tcp&security=reality&pbk=$PUBLIC_KEY&fp=chrome&sni=web.yota.ru&sid=77c6dc39379611b6&flow=xtls-rprx-vision#BCS_Reality
 INFO
-    else
-        echo "❌ Xray не запустился. Логи:"
-        journalctl -u xray -n 15 --no-pager
-    fi
 else
-    echo "❌ Ошибка в конфиге!"
-    echo "Показываю конфиг:"
-    cat /usr/local/etc/xray/config.json
+    echo "❌ Ошибка в синтаксисе конфига!"
 fi
