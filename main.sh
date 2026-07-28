@@ -1,4 +1,4 @@
-cat << 'EOF' > fix_tg_proxy.sh
+cat << 'EOF' > fix_tg_proxy_v2.sh
 #!/bin/bash
 
 CONFIG_FILE="/etc/mtg-proxy/config.toml"
@@ -6,14 +6,13 @@ IMAGE_NAME="ghcr.io/mhasanei/mtg-multi:latest"
 DOMAIN="web.yota.ru"
 IP_PROXY="185.229.66.115"
 
-echo "=== 1. Генерация нового секретного ключа для $DOMAIN ==="
-NEW_SECRET=$(docker run --rm $IMAGE_NAME generate secret tls $DOMAIN 2>/dev/null | grep -E '^[0-9a-fA-F]{64,}')
+echo "=== 1. Создание корректного FakeTLS секрета ==="
+# Префикс ee + случайный хэш на 32 знака + hex-код домена web.yota.ru
+HEX_DOMAIN=$(echo -n "$DOMAIN" | xxd -p | tr -d '\n')
+RANDOM_HASH=$(openssl rand -hex 16)
+NEW_SECRET="ee${RANDOM_HASH}${HEX_DOMAIN}"
 
-if [ -z "$NEW_SECRET" ]; then
-    echo "Ошибка: Не удалось сгенерировать секрет через Docker. Проверьте интернет-соединение."
-    exit 1
-fi
-echo "Успешно! Новый секрет: $NEW_SECRET"
+echo "Успешно! Сгенерирован ключ: $NEW_SECRET"
 
 echo "=== 2. Обновление конфигурационного файла $CONFIG_FILE ==="
 if [ ! -f "$CONFIG_FILE" ]; then
@@ -21,16 +20,16 @@ if [ ! -f "$CONFIG_FILE" ]; then
     exit 1
 fi
 
-# Делаем бэкап старого конфига на всякий случай
+# Бекап старой конфигурации
 cp "$CONFIG_FILE" "${CONFIG_FILE}.bak"
 
-# Заменяем старую строку secret на новую
+# Замена секретного ключа
 sed -i "s/^secret = .*/secret = \"$NEW_SECRET\"/" "$CONFIG_FILE"
 echo "Конфигурация успешно обновлена."
 
 echo "=== 3. Перезапуск Docker-контейнера ==="
 echo "Остановка и удаление старого tg-proxy..."
-docker stop tg-proxy && docker rm tg-proxy
+docker stop tg-proxy && docker rm tg-proxy 2>/dev/null
 
 echo "Запуск нового контейнера с правильными параметрами..."
 docker run -d \
@@ -41,11 +40,11 @@ docker run -d \
   -v "/etc/mtg-proxy/:/config:ro" \
   $IMAGE_NAME run /config/config.toml
 
-echo "=== 4. Скрипт завершил работу! ==="
-echo "Вывод логов (нажмите Ctrl+C для выхода):"
-echo "--------------------------------------"
+echo "=== 4. Проверка статуса ==="
 sleep 2
+echo "Вывод логов нового контейнера (нажмите Ctrl+C для выхода):"
+echo "--------------------------------------"
 docker logs -f tg-proxy
 EOF
 
-chmod +x fix_tg_proxy.sh && ./fix_tg_proxy.sh
+chmod +x fix_tg_proxy_v2.sh && ./fix_tg_proxy_v2.sh
