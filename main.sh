@@ -1,65 +1,39 @@
 #!/bin/bash
 
-set -e
-
 echo "========================================="
-echo "  Установка MTProxy (бинарный файл)"
+echo "  Диагностика и запуск MTProxy"
 echo "========================================="
 
-# 1. Устанавливаем зависимости для сборки
-echo "📦 Установка зависимостей..."
-apt update
-apt install -y git curl build-essential libssl-dev zlib1g-dev
+# 1. Проверяем, где бинарник
+echo "🔍 Поиск бинарника..."
+BINARY=$(find /root -name mtproto-proxy -type f -executable 2>/dev/null | head -1)
 
-# 2. Клонируем и собираем
-echo "🔨 Сборка MTProxy..."
-cd /root
-rm -rf MTProxy
-git clone https://github.com/TelegramMessenger/MTProxy
-cd MTProxy
-
-# Чистая сборка
-make clean 2>/dev/null || true
-make
-
-# 3. Проверяем бинарник
-if [ -f "objs/bin/mtproto-proxy" ]; then
-    BINARY_PATH="/root/MTProxy/objs/bin/mtproto-proxy"
-else
+if [ -z "$BINARY" ]; then
     echo "❌ Бинарник не найден!"
+    echo "Ищем в стандартных местах:"
+    ls -la /usr/local/bin/mtproto-proxy 2>/dev/null || echo "Нет в /usr/local/bin"
+    ls -la /root/MTProxy/objs/bin/mtproto-proxy 2>/dev/null || echo "Нет в /root/MTProxy/objs/bin"
+    ls -la /root/MTProtoProxy/obj/bin/mtproto-proxy 2>/dev/null || echo "Нет в /root/MTProtoProxy/obj/bin"
     exit 1
 fi
 
-echo "✅ Бинарник: $BINARY_PATH"
+echo "✅ Найден бинарник: $BINARY"
+BINARY_DIR=$(dirname "$BINARY")
+echo "✅ Директория: $BINARY_DIR"
 
-# 4. Копируем в /usr/local/bin
-cp "$BINARY_PATH" /usr/local/bin/mtproto-proxy
-chmod +x /usr/local/bin/mtproto-proxy
+# 2. Проверяем конфиги
+echo ""
+echo "📁 Проверка конфигов:"
+ls -la /etc/telegram/
 
-# 5. Создаём пользователя
-echo "👤 Создание пользователя..."
+# 3. Создаём пользователя (если нет)
 if ! id -u mtproxy 2>/dev/null; then
     useradd -r -s /bin/false mtproxy
 fi
 
-# 6. Создаём папку для конфигов
-mkdir -p /etc/telegram
-
-# 7. Скачиваем конфигурации
-echo "📥 Загрузка конфигураций..."
-curl -s https://core.telegram.org/getProxySecret -o /etc/telegram/proxy-secret
-curl -s https://core.telegram.org/getProxyConfig -o /etc/telegram/proxy-multi.conf
-
-# 8. Настраиваем лимиты
-echo "⚙️  Настройка лимитов..."
-echo "fs.file-max = 2097152" >> /etc/sysctl.conf
-sysctl -p
-
-echo "mtproxy soft nofile 65536" >> /etc/security/limits.conf
-echo "mtproxy hard nofile 65536" >> /etc/security/limits.conf
-
-# 9. Создаём systemd сервисы
-echo "📝 Создание systemd сервисов..."
+# 4. Создаём правильный systemd сервис (без WorkingDirectory)
+echo ""
+echo "📝 Создание systemd сервиса..."
 
 cat > /etc/systemd/system/mtproto-proxy.service << 'EOF'
 [Unit]
@@ -109,16 +83,44 @@ Group=mtproxy
 WantedBy=multi-user.target
 EOF
 
-# 10. Запускаем
-echo "🚀 Запуск прокси..."
+# 5. Копируем бинарник в /usr/local/bin
+echo ""
+echo "📦 Копирование бинарника..."
+cp "$BINARY" /usr/local/bin/mtproto-proxy
+chmod +x /usr/local/bin/mtproto-proxy
+chown mtproxy:mtproxy /usr/local/bin/mtproto-proxy
+
+# 6. Запускаем вручную для проверки
+echo ""
+echo "🧪 Запуск вручную (для диагностики):"
+echo "========================================="
+sudo -u mtproxy /usr/local/bin/mtproto-proxy \
+    -u mtproxy \
+    -p 8888 \
+    -H 443 \
+    -S ee7765622e796f74612e72755b744f13 \
+    -P 8b654af431191c0e4f9e64c44f0d3d1e \
+    --aes-pwd /etc/telegram/proxy-secret /etc/telegram/proxy-multi.conf \
+    -M 2 &
+sleep 3
+
+# 7. Проверяем, запустился ли
+echo ""
+echo "🔍 Проверка процесса:"
+ps aux | grep mtproto-proxy | grep -v grep
+
+echo ""
+echo "🔌 Проверка портов:"
+ss -tlnp | grep -E "443|8443|8888|8889"
+
+# 8. Если всё ок — запускаем через systemd
+echo ""
+echo "🚀 Запуск через systemd..."
 systemctl daemon-reload
 systemctl stop mtproto-proxy mtproto-proxy-2 2>/dev/null || true
 systemctl start mtproto-proxy
-systemctl enable mtproto-proxy
 systemctl start mtproto-proxy-2
-systemctl enable mtproto-proxy-2
 
-# 11. Проверяем
 echo ""
 echo "📊 Статус:"
 sleep 2
@@ -126,55 +128,15 @@ systemctl status mtproto-proxy --no-pager
 echo ""
 systemctl status mtproto-proxy-2 --no-pager
 
-# 12. Логи
+# 9. Логи
 echo ""
-echo "📋 Логи прокси 1:"
+echo "📋 Логи:"
 journalctl -u mtproto-proxy -n 20 --no-pager
 
 echo ""
-echo "📋 Логи прокси 2:"
-journalctl -u mtproto-proxy-2 -n 20 --no-pager
-
-# 13. Проверяем порты
-echo ""
-echo "🔌 Проверка портов:"
-ss -tlnp | grep -E "443|8443|8888|8889"
-
-# 14. Статистика
-echo ""
-echo "📊 Статистика:"
-sleep 1
-curl -s http://localhost:8888/stats || echo "⏳ Статистика ещё не готова"
-echo ""
-curl -s http://localhost:8889/stats || echo "⏳ Статистика ещё не готова"
-
-# 15. Cron для обновления
-echo ""
-echo "🔄 Настройка автообновления..."
-cat > /usr/local/bin/update-mtproxy-config.sh << 'EOF'
-#!/bin/bash
-curl -s https://core.telegram.org/getProxyConfig -o /etc/telegram/proxy-multi.conf
-systemctl restart mtproto-proxy mtproto-proxy-2
-EOF
-chmod +x /usr/local/bin/update-mtproxy-config.sh
-
-(crontab -l 2>/dev/null; echo "0 3 * * * /usr/local/bin/update-mtproxy-config.sh") | crontab -
-
-echo ""
 echo "========================================="
-echo "✅ Установка завершена!"
+echo "✅ Готово!"
 echo "========================================="
-echo ""
-echo "📱 Ссылки для подключения:"
+echo "📱 Ссылки:"
 echo "   tg://proxy?server=185.229.66.115&port=443&secret=ee7765622e796f74612e72755b744f13"
 echo "   tg://proxy?server=185.229.66.115&port=8443&secret=c741a811908c5b4238dee60fc14c784c"
-echo ""
-echo "📋 Команды управления:"
-echo "   systemctl status mtproto-proxy"
-echo "   systemctl restart mtproto-proxy"
-echo "   journalctl -u mtproto-proxy -f"
-echo ""
-echo "📊 Статистика:"
-echo "   curl http://localhost:8888/stats"
-echo "   curl http://localhost:8889/stats"
-echo "========================================="
