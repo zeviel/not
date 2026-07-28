@@ -3,7 +3,7 @@ cat << 'EOF' > fix_tg_proxy_v3.sh
 
 CONFIG_FILE="/etc/mtg-proxy/config.toml"
 IMAGE_NAME="ghcr.io/mhasanei/mtg-multi:latest"
-TAG="b62807b66282914bcbd6ef432b20b89f4"
+TAG="b62807b6682914bcbd6ef432b20b89f4"
 IP_PUBLIC="185.229.66.115"
 NEW_SECRET="eec741a811908c5b4238dee60fc14c784c7765622e796f74612e7275"
 
