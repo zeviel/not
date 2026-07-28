@@ -1,54 +1,108 @@
 \# 1. Останавливаем и удаляем контейнеры
 docker stop mtproto-proxy mtproto-proxy-2 2>/dev/null || true
 docker rm mtproto-proxy mtproto-proxy-2 2>/dev/null || true
+sudo apt remove docker*&&sudo apt autoremove
+# Устанавливаем зависимости для сборки
+apt update
+apt install -y git curl build-essential libssl-dev zlib1g-dev
 
-# 2. Увеличиваем системный лимит для Docker-демона
+# Клонируем репозиторий
+git clone https://github.com/TelegramMessenger/MTProxy
+cd MTProxy
+
+# Собираем
+make
+
+# Переходим в папку с бинарником
+cd objs/bin
+# Создаём папку для конфигов
+mkdir -p /etc/telegram
+
+# Скачиваем секрет и конфиг
+curl -s https://core.telegram.org/getProxySecret -o /etc/telegram/proxy-secret
+curl -s https://core.telegram.org/getProxyConfig -o /etc/telegram/proxy-multi.conf
+
+# Проверяем, что файлы скачались
+ls -la /etc/telegram/
+cat > /etc/systemd/system/mtproto-proxy.service << 'EOF'
+[Unit]
+Description=MTProto Proxy
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/root/MTProxy/objs/bin
+ExecStart=/root/MTProxy/objs/bin/mtproto-proxy \
+    -u nobody \
+    -p 8888 \
+    -H 443 \
+    -S ee7765622e796f74612e72755b744f13 \
+    -P 8b654af431191c0e4f9e64c44f0d3d1e \
+    --aes-pwd /etc/telegram/proxy-secret /etc/telegram/proxy-multi.conf \
+    -M 2
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+cat > /etc/systemd/system/mtproto-proxy-2.service << 'EOF'
+[Unit]
+Description=MTProto Proxy 2 (port 8443)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/root/MTProxy/objs/bin
+ExecStart=/root/MTProxy/objs/bin/mtproto-proxy \
+    -u nobody \
+    -p 8889 \
+    -H 8443 \
+    -S c741a811908c5b4238dee60fc14c784c \
+    -P b62807b6682914bcbd6ef432b20b89f4 \
+    --aes-pwd /etc/telegram/proxy-secret /etc/telegram/proxy-multi.conf \
+    -M 2
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+# Добавляем в sysctl
 echo "fs.file-max = 2097152" >> /etc/sysctl.conf
 sysctl -p
 
-# 3. Увеличиваем пользовательский лимит
-echo "root soft nofile 65536" >> /etc/security/limits.conf
-echo "root hard nofile 65536" >> /etc/security/limits.conf
+# Добавляем лимиты для пользователя nobody
+echo "nobody soft nofile 65536" >> /etc/security/limits.conf
+echo "nobody hard nofile 65536" >> /etc/security/limits.conf
 
-# 4. Перезапускаем Docker демон
-systemctl restart docker
+# Для текущей сессии
+ulimit -n 65536
+# Перезагружаем systemd
+systemctl daemon-reload
 
-# 5. Запускаем прокси снова
-docker run -d \
-  --name=mtproto-proxy \
-  --restart=always \
-  -p 443:443 \
-  -v mtproto-proxy-config:/data \
-  -e SECRET=ee7765622e796f74612e72755b744f13 \
-  -e TAG=8b654af431191c0e4f9e64c44f0d3d1e \
-  -e WORKERS=2 \
-  --ulimit nofile=65536:65536 \
-  telegrammessenger/proxy:latest
+# Запускаем первый прокси
+systemctl start mtproto-proxy
+systemctl enable mtproto-proxy
 
-# 1. Проверить статус контейнера
-docker ps --filter "name=mtproto-proxy"
+# Запускаем второй прокси
+systemctl start mtproto-proxy-2
+systemctl enable mtproto-proxy-2
 
-# 2. Посмотреть логи (предупреждение о лимитах должно исчезнуть)
-docker logs mtproto-proxy 2>&1 | tail -20
+# Проверяем статус
+systemctl status mtproto-proxy
+systemctl status mtproto-proxy-2
 
-# 3. Проверить статистику
-docker exec mtproto-proxy curl -s http://localhost:2398/stats
+# Смотрим логи
+journalctl -u mtproto-proxy -f
+journalctl -u mtproto-proxy-2 -f
+cat > /usr/local/bin/update-mtproxy-config.sh << 'EOF'
+#!/bin/bash
+curl -s https://core.telegram.org/getProxyConfig -o /etc/telegram/proxy-multi.conf
+systemctl restart mtproto-proxy mtproto-proxy-2
+EOF
 
-# 4. Проверить, что порт слушается
-ss -tlnp | grep 443
+chmod +x /usr/local/bin/update-mtproxy-config.sh
 
-# 5. Проверить открытые файлы (лимит должен быть 65536)
-docker exec mtproto-proxy sh -c "ulimit -n"
-
-docker run -d \
-  --name=mtproto-proxy-2 \
-  --restart=always \
-  -p 8443:443 \
-  -v mtproto-proxy-config-2:/data \
-  -e SECRET=c741a811908c5b4238dee60fc14c784c \
-  -e TAG=b62807b6682914bcbd6ef432b20b89f4 \
-  -e WORKERS=2 \
-  --ulimit nofile=65536:65536 \
-  telegrammessenger/proxy:latest
-
-  
+# Добавляем в cron (ежедневно в 3:00)
+echo "0 3 * * * /usr/local/bin/update-mtproxy-config.sh" >> /etc/crontab
