@@ -1,21 +1,34 @@
 #!/bin/bash
 
 echo "========================================="
-echo "  Запуск MTProxy (исправление прав)"
+echo "  Установка MTProxy (статическая сборка)"
 echo "========================================="
 
-# 1. Убиваем старые процессы
-echo "🧹 Очистка..."
-pkill -f mtproto-proxy 2>/dev/null || true
-systemctl stop mtproto-proxy mtproto-proxy-2 2>/dev/null || true
+# 1. Скачиваем статическую сборку
+echo "📥 Скачивание статической сборки..."
+cd /root
 
-# 2. Проверяем, что порты свободны
-echo "🔌 Проверка портов..."
-ss -tlnp | grep -E "443|8443" || echo "Порты свободны"
+# Скачиваем с официального репозитория (если есть)
+if ! wget -O mtproto-proxy https://github.com/TelegramMessenger/MTProxy/releases/download/v2.0/mtproto-proxy-linux-amd64; then
+    # Если нет, используем альтернативный источник
+    echo "⚠️  Скачивание с основного репозитория не удалось, пробуем альтернативу..."
+    wget -O mtproto-proxy https://core.telegram.org/getProxySecret/mtproto-proxy-linux-amd64 || {
+        echo "❌ Не удалось скачать бинарник"
+        exit 1
+    }
+fi
 
-# 3. Запускаем от root (но с опцией -u nobody для понижения привилегий)
-echo "🚀 Запуск прокси 1 (порт 443)..."
-nohup /usr/local/bin/mtproto-proxy \
+chmod +x mtproto-proxy
+
+# 2. Создаём конфиги
+mkdir -p /etc/telegram
+curl -s https://core.telegram.org/getProxySecret -o /etc/telegram/proxy-secret
+curl -s https://core.telegram.org/getProxyConfig -o /etc/telegram/proxy-multi.conf
+
+# 3. Запускаем через nohup для стабильности
+echo "🚀 Запуск прокси..."
+
+nohup /root/mtproto-proxy \
     -u nobody \
     -p 8888 \
     -H 443 \
@@ -23,10 +36,9 @@ nohup /usr/local/bin/mtproto-proxy \
     -P 8b654af431191c0e4f9e64c44f0d3d1e \
     --aes-pwd /etc/telegram/proxy-secret /etc/telegram/proxy-multi.conf \
     -M 2 \
-    >> /var/log/mtproto-proxy.log 2>&1 &
+    > /var/log/mtproto-proxy.log 2>&1 &
 
-echo "🚀 Запуск прокси 2 (порт 8443)..."
-nohup /usr/local/bin/mtproto-proxy \
+nohup /root/mtproto-proxy \
     -u nobody \
     -p 8889 \
     -H 8443 \
@@ -34,18 +46,16 @@ nohup /usr/local/bin/mtproto-proxy \
     -P b62807b6682914bcbd6ef432b20b89f4 \
     --aes-pwd /etc/telegram/proxy-secret /etc/telegram/proxy-multi.conf \
     -M 2 \
-    >> /var/log/mtproto-proxy-2.log 2>&1 &
+    > /var/log/mtproto-proxy-2.log 2>&1 &
 
-# 4. Ждём и проверяем
-echo "⏳ Ожидание запуска..."
-sleep 3
-
+# 4. Проверяем
+sleep 5
 echo ""
-echo "📊 Проверка процессов:"
+echo "📊 Проверка:"
 ps aux | grep mtproto-proxy | grep -v grep
 
 echo ""
-echo "🔌 Проверка портов:"
+echo "🔌 Порты:"
 ss -tlnp | grep -E "443|8443|8888|8889"
 
 echo ""
@@ -54,9 +64,11 @@ tail -20 /var/log/mtproto-proxy.log
 
 echo ""
 echo "📊 Статистика:"
-curl -s http://localhost:8888/stats || echo "⏳ Статистика ещё не готова"
+curl -s http://localhost:8888/stats
 
 echo ""
 echo "========================================="
 echo "✅ Готово!"
+echo "📱 tg://proxy?server=185.229.66.115&port=443&secret=ee7765622e796f74612e72755b744f13"
+echo "📱 tg://proxy?server=185.229.66.115&port=8443&secret=c741a811908c5b4238dee60fc14c784c"
 echo "========================================="
