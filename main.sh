@@ -1,4 +1,6 @@
-
+docker rm -f tg-proxy
+apt-get update && apt-get install -y git curl build-essential libssl-dev zlib1g-dev
+git clone https://github.com/TelegramMessenger/MTProxy
 cd MTProxy
 make && cd /objs/bin
 curl -s https://core.telegram.org/getProxySecret -o proxy-secret
