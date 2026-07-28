@@ -1,12 +1,14 @@
 # 1. Создаем папку и скачиваем официальные файлы конфигурации прямо туда
 mkdir -p /etc/telegram
 curl -s https://telegram.org -o /etc/telegram/proxy-secret
-curl -s https://core.telegram.org/getProxyConfig -o /etc/telegram/proxy-multi.conf
 
 # 2. Удаляем старые зависшие контейнеры
 docker rm -f mtproto-proxy mtproto-proxy-2 2>/dev/null || true
 
 # 3. Запускаем Контейнер 1 на порту 443
+docker rm -f mtproto-proxy mtproto-proxy-2 2>/dev/null || true
+
+# Контейнер 1: порт 443 (Запрос конфигурации напрямую по URL)
 docker run -d \
   --name=mtproto-proxy \
   --restart=always \
@@ -17,9 +19,9 @@ docker run -d \
   -u nobody -p 8888 -H 443 \
   -S ee7765622e796f74612e72755b744f13 \
   -P 8b65a4af31191c0e4f9e64c44f0d3d1e \
-  --aes-pwd /etc/telegram/proxy-secret /etc/telegram/proxy-multi.conf -M 1
+  --aes-pwd /etc/telegram/proxy-secret -C https://core.telegram.org/getProxyConfig -M 1
 
-# 4. Запускаем Контейнер 2 на порту 8443
+# Контейнер 2: порт 8443 (Запрос конфигурации напрямую по URL)
 docker run -d \
   --name=mtproto-proxy-2 \
   --restart=always \
@@ -30,4 +32,4 @@ docker run -d \
   -u nobody -p 8888 -H 443 \
   -S c741a811908c5b4238dee60fc14c784c \
   -P b62807b6682914bcbd6ef432b20b89f4 \
-  --aes-pwd /etc/telegram/proxy-secret /etc/telegram/proxy-multi.conf -M 1
+  --aes-pwd /etc/telegram/proxy-secret -C https://core.telegram.org/getProxyConfig -M 1
