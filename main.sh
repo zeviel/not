@@ -37,7 +37,7 @@ docker run -d \
   --restart=always \
   --privileged \
   --ulimit nofile=65536:65536 \
-  -p 8443:443 \
+  -p 8443:8443 \
   -v mtproto-proxy-config-2:/data \
   -e SECRET=c741a811908c5b4238dee60fc14c784c \
   -e TAG=b62807b6682914bcbd6ef432b20b89f4 \
