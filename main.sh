@@ -26,3 +26,4 @@ sudo docker run -d \
 systemctl daemon-reload
 systemctl restart docker
 docker exec mtproto-proxy ulimit -n
+docker exec mtproto-proxy-2 ulimit -n
