@@ -1,3 +1,9 @@
+# Временно (до перезагрузки)
+ulimit -n 65535
+
+# Постоянно — отредактируйте /etc/security/limits.conf
+echo "root soft nofile 65535" >> /etc/security/limits.conf
+echo "root hard nofile 65535" >> /etc/security/limits.conf
 sudo docker run -d \
   --name=mtproto-proxy \
   --restart=always \
