@@ -8,7 +8,7 @@ IP_PUBLIC="185.229.66.115"
 
 echo "=== 1. Создание чистого и надежного config.toml ==="
 # Генерируем новый FakeTLS ключ под google.com (префикс ee + 16 байт хэша + hex домена)
-HEX_GOOGLE=$(echo -n "google.com" | xxd -p | tr -d '\n')
+HEX_GOOGLE=$(echo -n "web.yota.ru" | xxd -p | tr -d '\n')
 RANDOM_HASH=$(openssl rand -hex 16)
 NEW_SECRET="ee${RANDOM_HASH}${HEX_GOOGLE}"
 
