@@ -1,23 +1,45 @@
-#!/bin/bash
+\# 1. Останавливаем и удаляем контейнеры
+docker stop mtproto-proxy mtproto-proxy-2 2>/dev/null || true
+docker rm mtproto-proxy mtproto-proxy-2 2>/dev/null || true
 
-# Останавливаем и удаляем старые контейнеры
-echo "🧹 Очистка старых контейнеров..."
-docker rm -f mtproto-proxy mtproto-proxy-2 2>/dev/null || true
+# 2. Увеличиваем системный лимит для Docker-демона
+echo "fs.file-max = 2097152" >> /etc/sysctl.conf
+sysctl -p
 
-# 1. Запускаем Контейнер 1 на порту 443
-echo "🚀 Запуск прокси 1 (порт 443)..."
+# 3. Увеличиваем пользовательский лимит
+echo "root soft nofile 65536" >> /etc/security/limits.conf
+echo "root hard nofile 65536" >> /etc/security/limits.conf
+
+# 4. Перезапускаем Docker демон
+systemctl restart docker
+
+# 5. Запускаем прокси снова
 docker run -d \
   --name=mtproto-proxy \
   --restart=always \
   -p 443:443 \
   -v mtproto-proxy-config:/data \
   -e SECRET=ee7765622e796f74612e72755b744f13 \
-  -e TAG=8b65a4af31191c0e4f9e64c44f0d3d1e \
+  -e TAG=8b654af431191c0e4f9e64c44f0d3d1e \
   -e WORKERS=2 \
+  --ulimit nofile=65536:65536 \
   telegrammessenger/proxy:latest
 
-# 2. Запускаем Контейнер 2 на порту 8443
-echo "🚀 Запуск прокси 2 (порт 8443)..."
+# 1. Проверить статус контейнера
+docker ps --filter "name=mtproto-proxy"
+
+# 2. Посмотреть логи (предупреждение о лимитах должно исчезнуть)
+docker logs mtproto-proxy 2>&1 | tail -20
+
+# 3. Проверить статистику
+docker exec mtproto-proxy curl -s http://localhost:2398/stats
+
+# 4. Проверить, что порт слушается
+ss -tlnp | grep 443
+
+# 5. Проверить открытые файлы (лимит должен быть 65536)
+docker exec mtproto-proxy sh -c "ulimit -n"
+
 docker run -d \
   --name=mtproto-proxy-2 \
   --restart=always \
@@ -26,28 +48,7 @@ docker run -d \
   -e SECRET=c741a811908c5b4238dee60fc14c784c \
   -e TAG=b62807b6682914bcbd6ef432b20b89f4 \
   -e WORKERS=2 \
+  --ulimit nofile=65536:65536 \
   telegrammessenger/proxy:latest
 
-# 3. Проверяем статус
-sleep 3
-echo -e "\n📊 Статус контейнеров:"
-docker ps --filter "name=mtproto-proxy" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
-
-# 4. Показываем логи (там будут ссылки для подключения)
-echo -e "\n📋 Логи прокси 1:"
-docker logs mtproto-proxy 2>&1 | grep -E "(tg://proxy|Secret)"
-
-echo -e "\n📋 Логи прокси 2:"
-docker logs mtproto-proxy-2 2>&1 | grep -E "(tg://proxy|Secret)"
-
-# 5. Информация для подключения
-echo -e "\n✅ Прокси успешно запущены!"
-echo "=========================================="
-echo "🔹 Прокси 1 (порт 443):"
-echo "   Секрет: ee7765622e796f74612e72755b744f13"
-echo "   Ссылка: tg://proxy?server=ВАШ_IP&port=443&secret=ee7765622e796f74612e72755b744f13"
-echo ""
-echo "🔹 Прокси 2 (порт 8443):"
-echo "   Секрет: c741a811908c5b4238dee60fc14c784c"
-echo "   Ссылка: tg://proxy?server=ВАШ_IP&port=8443&secret=c741a811908c5b4238dee60fc14c784c"
-echo "=========================================="
+  
