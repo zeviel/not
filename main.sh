@@ -6,4 +6,4 @@ docker run -d \
   -p 8443:8443 \
   -v /etc/mtg-proxy:/config:ro \
   nineseconds/mtg:latest \
-  /config/config.toml
+  run /config/config.toml
