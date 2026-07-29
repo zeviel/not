@@ -1,18 +1,15 @@
 docker stop tg-proxy && docker rm tg-proxy
+#!/bin/bash
 
-cat > /etc/mtg-proxy/config.toml <<'EOF'
-secret = "eec741a811908c5b4238dee60fc14c784c7765622e796f74612e7275"
-bind-to = "0.0.0.0:8443"
-ad-tag = "b62807b6682914bcbd6ef432b20b89f4"
-public-ipv4 = "185.229.66.115"
-allow-fallback-on-unknown-dc = true
-EOF
-
-
+echo "🚀 Запуск прокси 2 (порт 8443)..."
 docker run -d \
-  --name tg-proxy \
+  --name=mtproto-proxy-2 \
   --restart=always \
-  -p 8443:8443 \
-  -v /etc/mtg-proxy:/config:ro \
-  ghcr.io/mhsanaei/mtg-multi:latest \
-  run /config/config.toml
+  --privileged \
+  --ulimit nofile=65536:65536 \
+  -p 8443:443 \
+  -v mtproto-proxy-config-2:/data \
+  -e SECRET=c741a811908c5b4238dee60fc14c784c \
+  -e TAG=b62807b6682914bcbd6ef432b20b89f4 \
+  -e WORKERS=2 \
+  telegrammessenger/proxy:latest
