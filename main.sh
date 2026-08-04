@@ -42,4 +42,4 @@ sudo docker run -d --name tg-proxy \
   -p 8443:443 \
   -v /etc/telemt-config:/etc/telemt \
   whn0thacked/telemt-docker:latest \
-  telemt /etc/config/config.toml
+  telemt /etc/telemt/config.toml
