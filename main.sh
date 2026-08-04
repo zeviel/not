@@ -77,3 +77,9 @@ cat << 'EOF' > /usr/local/etc/xray/config.json
 EOF
 iptables -t nat -A PREROUTING -i eth0 -p udp --dport 443 -j DNAT --to-destination 178.177.13.233:443
 iptables -t nat -A PREROUTING -i eth0 -p tcp --dport 80 -j DNAT --to-destination 178.177.13.233:80
+systemctl daemon-reload
+systemctl enable xray.service
+systemctl start xray.service
+sysctl -w net.ipv4.ip_forward=1
+echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
+apt install -y iptables-persistent
