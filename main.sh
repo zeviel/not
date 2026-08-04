@@ -1,7 +1,9 @@
 # Остановите контейнер
 docker stop tg-proxy && docker rm -f tg-proxy
 
-cat > /etc/mtg-proxy/config.toml << 'EOF'
+# Создайте правильный конфиг
+mkdir -p /etc/telemt-config
+cat > /etc/telemt-config/config.toml << 'EOF'
 # Основные настройки
 proxy_port = 443
 secret = "c741a811908c5b4238dee60fc14c784c"
@@ -38,6 +40,6 @@ sudo docker run -d --name tg-proxy \
   --privileged \
   --restart=always \
   -p 8443:443 \
-  -v /etc/mtg-proxy/:/config:ro \
+  -v /etc/telemt-config:/etc/telemt \
   whn0thacked/telemt-docker:latest \
   telemt /etc/config/config.toml
