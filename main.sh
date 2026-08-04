@@ -1,2 +1,5 @@
-wget https://github.com/telemt/telemt/releases/download/3.4.25/telemt-x86_64-v3-linux-gnu.tar.gz
-tar -xzf telemt-x86_64-v3-linux-gnu.tar.gz
+# Use musl (statically linked) - NO GLIBC dependency!
+wget https://github.com/username/telemt/releases/download/3.4.25/telemt-x86_64-linux-musl.tar.gz
+tar -xzf telemt-x86_64-linux-musl.tar.gz
+cd telemt-x86_64-linux-musl
+./telemt
