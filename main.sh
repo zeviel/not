@@ -9,7 +9,7 @@ tag = "b62807b6682914bcbde6f432b20b89f4"
 
 [fake_tls]
 enabled = true
-allow_any_sni = true
+allowed_snis = ["web.yota.ru"]
 
 [upstream]
 timeout_secs = 10
