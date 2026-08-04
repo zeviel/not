@@ -4,7 +4,7 @@ docker stop tg-proxy && docker rm -f tg-proxy
 # Создаем новый конфиг с allow_any_sni
 cat > /etc/telemt-config/config.toml << 'EOF'
 proxy_port = 443
-secret = "c741a811908c5b4238dee60fc14c784c"
+secret = "eec741a811908c5b4238dee60fc14c784c7765622e796f74612e7275"
 tag = "b62807b6682914bcbde6f432b20b89f4"
 
 [fake_tls]
