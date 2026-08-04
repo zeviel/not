@@ -1,7 +1,7 @@
 # Остановите контейнер
 docker stop tg-proxy && docker rm -f tg-proxy
 
-cat > /etc/config/config.toml << 'EOF'
+cat > /etc/mtg-proxy/config.toml << 'EOF'
 # Основные настройки
 proxy_port = 443
 secret = "c741a811908c5b4238dee60fc14c784c"
