@@ -22,10 +22,10 @@ REPO_URL="https://github.com/kr-ilya/mtproxy-docker.git"
 INSTALL_DIR="${INSTALL_DIR:-/opt/mtproxy-docker}"
 
 PORT="8443"
-SECRET="${SECRET:-}"                     # пусто = сгенерировать автоматически
-TAG="${TAG:-}"                           # тег из @MTProxybot, можно оставить пустым
-FAKE_TLS="${FAKE_TLS:-1}"
-FAKE_TLS_DOMAIN="${FAKE_TLS_DOMAIN:-cloudflare.com}"
+SECRET="c741a811908c5b4238dee60fc14c784c"                     # пусто = сгенерировать автоматически
+TAG="b62807b6682914bcbd6ef432b20b89f4"                           # тег из @MTProxybot, можно оставить пустым
+FAKE_TLS="web.yota.ru"
+FAKE_TLS_DOMAIN="web.yota.ru"
 WORKERS="${WORKERS:-4}"
 STATS_PORT="${STATS_PORT:-8888}"
 CONFIG_UPDATE_INTERVAL="${CONFIG_UPDATE_INTERVAL:-604800}"
