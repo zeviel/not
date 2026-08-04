@@ -1,15 +1,79 @@
-docker stop tg-proxy && docker rm tg-proxy
-#!/bin/bash
-
-echo "🚀 Запуск прокси 2 (порт 8443)..."
-docker run -d \
-  --name=mtproto-proxy-2 \
-  --restart=always \
-  --privileged \
-  --ulimit nofile=65536:65536 \
-  -p 8443:443 \
-  -v mtproto-proxy-config-2:/data \
-  -e SECRET=c741a811908c5b4238dee60fc14c784c \
-  -e TAG=b62807b6682914bcbd6ef432b20b89f4 \
-  -e WORKERS=2 \
-  telegrammessenger/proxy:latest
+apt install curl mc htop nano
+bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install
+systemctl stop xray.service
+cat << 'EOF' > /usr/local/etc/xray/config.json
+{
+  "log": {
+    "loglevel": "info"
+  },
+  "routing": {
+    "rules": [],
+    "domainStrategy": "AsIs"
+  },
+  "inbounds": [
+    {
+      "port": 42639,
+      "tag": "ss",
+      "protocol": "shadowsocks",
+      "settings": {
+        "method": "2022-blake3-aes-128-gcm",
+        "password": "yx6cNyG5bLvWV4WRxYM+Vw==",
+        "network": "tcp,udp"
+      }
+    },
+    {
+      "port": 443,
+      "protocol": "vless",
+      "tag": "vless_tls",
+      "settings": {
+        "clients": [
+          {
+            "id": "453d2b29-7554-4b62-9221-91b595ca905c",
+            "email": "user@server",
+            "flow": "xtls-rprx-vision"
+          }
+        ],
+        "decryption": "none"
+      },
+      "streamSettings": {
+        "network": "tcp",
+        "security": "reality",
+        "realitySettings": {
+          "show": false,
+          "dest": "web.yota.ru:443",
+          "xver": 0,
+          "serverNames": [
+            "web.yota.ru"
+          ],
+          "privateKey": "uB2W-oybnA0-UA4b9ZUIpEjFrId-y8oj3ELkhD4i20A",
+          "minClientVer": "",
+          "maxClientVer": "",
+          "maxTimeDiff": 0,
+          "shortIds": [
+            "9da744301887b94b"
+          ]
+        }
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": [
+          "http",
+          "tls"
+        ]
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "protocol": "freedom",
+      "tag": "direct"
+    },
+    {
+      "protocol": "blackhole",
+      "tag": "block"
+    }
+  ]
+}
+EOF
+iptables -t nat -A PREROUTING -i eth0 -p udp --dport 443 -j DNAT --to-destination 178.177.13.233:443
+iptables -t nat -A PREROUTING -i eth0 -p tcp --dport 80 -j DNAT --to-destination 178.177.13.233:80
