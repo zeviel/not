@@ -1,7 +1,16 @@
-cat << 'EOF' > /etc/mtg-proxy/config.toml
-secret = "eec741a811908c5b4238dee60fc14c784c7765622e796f74612e7275"
-tag = "b62807b6682914bcbde6f432b20b89f4"
-bind-to = "[::]:8443"
-auto-update = true
-allow-fallback-on-unknown-dc = true
-EOF
+# Cloning repo
+git clone https://github.com/telemt/telemt 
+# Changing Directory to telemt
+cd telemt
+# Starting Release Build
+cargo build --release
+
+# Current release profile uses lto = "fat" for maximum optimization (see Cargo.toml).
+# On low-RAM systems (~1 GB) you can override it to "thin".
+
+# Move to /bin
+mv ./target/release/telemt /bin
+# Make executable
+chmod +x /bin/telemt
+# Lets go!
+telemt config.toml
