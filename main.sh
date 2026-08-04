@@ -5,4 +5,4 @@ docker run -d \
   --restart=always \
   -p 8443:3128 \
   -v /etc/mtg-proxy/config.toml:/config.toml:ro \
-  nineseconds/mtg:2
+  nineseconds/mtg:1
