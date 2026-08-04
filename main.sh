@@ -22,11 +22,8 @@ log_level = "info"
 EOF
 
 # Запускаем заново
-sudo docker run -d --name tg-proxy \
-  --ulimit nofile=65536:65536 \
-  --privileged \
-  --restart=always \
+docker run -d --restart=always --name tg-proxy \
   -p 8443:443 \
-  -v /etc/telemt-config:/etc/telemt \
-  whn0thacked/telemt-docker:latest \
-  telemt /etc/telemt/config.toml
+  -v /etc/telemt-config:/config \
+  telegrammessenger/proxy:latest \
+  -c /config/config.toml
