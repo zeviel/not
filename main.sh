@@ -9,12 +9,11 @@ public-ipv4 = "185.229.66.115"
 allow-fallback-on-unknown-dc = true
 EOF
 
-
 docker run -d \
   --name tg-proxy \
   --restart=always \
   -p 8443:8443 \
-  --add-host=web.yota.ru:185.229.66.115
+  --add-host=web.yota.ru:185.229.66.115 \
   -v /etc/mtg-proxy:/config:ro \
   ghcr.io/mhsanaei/mtg-multi:latest \
   run /config/config.toml
