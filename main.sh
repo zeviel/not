@@ -7,6 +7,7 @@ bind-to = "0.0.0.0:8443"
 ad-tag = "b62807b6682914bcbd6ef432b20b89f4"
 public-ipv4 = "185.229.66.115"
 allow-fallback-on-unknown-dc = true
+auto-update = true
 EOF
 
 docker run -d \
