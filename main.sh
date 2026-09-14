@@ -1,1 +1,1 @@
-./headless-wbstream-creator --cookie "cookies.json"
+./headless-wbstream-creator --cookies "cookies.json"
