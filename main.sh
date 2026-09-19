@@ -1,4 +1,6 @@
-cd olcrtc
+cd /tmp/olcrtc-deploy-*   # или путь, куда скрипт склонировал
+# либо:
+cd ~/olcrtc 2>/dev/null || cd /tmp/olcrtc-*
 
 ulimit -n 65536
 
