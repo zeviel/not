@@ -1,4 +1,12 @@
-podman system prune -af --volumes
+rm -rf ~/.cache/olcrtc
+rm -rf /tmp/olcrtc-*
+rm -rf /tmp/go-build*
+sudo apt-get clean
+sudo apt-get autoremove -y
+sudo journalctl --vacuum-size=50M
+sudo rm -rf /tmp/*
+sudo rm -rf /var/tmp/*
+
 cd olcrtc
 
 podman run --rm \
