@@ -1,3 +1,2 @@
-ulimit -n
-ulimit -Hn
-cat /proc/self/limits | grep "open files"
+ulimit -n 65536
+curl -fsSL https://raw.githubusercontent.com/openlibrecommunity/olcrtc/master/install.sh | bash
