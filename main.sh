@@ -1,3 +1,1 @@
-git clone https://github.com/YakovSava/anti-whitelist-rus
-cd antiwhitelist
-./gradlew assembleDebug
+curl -fsSL https://raw.githubusercontent.com/openlibrecommunity/olcrtc/master/install.sh | bash
