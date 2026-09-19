@@ -5,7 +5,6 @@ set -euo pipefail
 # Установка последнего релиза gVisor (runsc)
 # ============================================
 
-# Проверяем архитектуру
 ARCH=$(uname -m)
 case "$ARCH" in
     x86_64|aarch64)
@@ -17,23 +16,18 @@ case "$ARCH" in
         ;;
 esac
 
-# Нужны права root
 if [ "$(id -u)" -ne 0 ]; then
     echo "Запустите скрипт от root или через sudo"
     exit 1
 fi
 
-# Устанавливаем зависимости (curl + zstd)
-if ! command -v curl >/dev/null 2>&1; then
+# Зависимости
+if ! command -v curl >/dev/null 2>&1 || ! command -v zstd >/dev/null 2>&1; then
     apt-get update -qq
-    apt-get install -y -qq curl ca-certificates
-fi
-if ! command -v zstd >/dev/null 2>&1; then
-    apt-get update -qq
-    apt-get install -y -qq zstd
+    apt-get install -y -qq curl ca-certificates zstd
 fi
 
-# Скачиваем и устанавливаем последний релиз
+# Скачиваем и устанавливаем
 URL="https://storage.googleapis.com/gvisor/releases/release/latest/${ARCH}"
 TMPDIR=$(mktemp -d)
 cd "$TMPDIR"
@@ -49,16 +43,14 @@ echo "Устанавливаем в /usr/local/bin..."
 tar --zstd -xf gvisor.tar.zstd -C /usr/local/bin
 chmod +x /usr/local/bin/runsc /usr/local/bin/containerd-shim-runsc-v1
 
-# Очистка
 cd /
 rm -rf "$TMPDIR"
 
-# Проверка
 echo "Установленная версия:"
 runsc --version
 
 # ============================================
-# Настройка Podman (если установлен)
+# Настройка Podman
 # ============================================
 
 if command -v podman >/dev/null 2>&1; then
@@ -67,8 +59,6 @@ if command -v podman >/dev/null 2>&1; then
     mkdir -p /etc/containers
     cat > /etc/containers/containers.conf << 'EOF'
 [engine]
-# Можно оставить crun по умолчанию
-# runtime = "crun"
 
 [engine.runtimes]
 runsc = [
@@ -77,18 +67,16 @@ runsc = [
 EOF
 
     echo "Тестовый запуск контейнера через gVisor..."
-    # --runtime-flag=ignore-cgroups нужен в некоторых окружениях
-    # (в т.ч. в ограниченных sandbox-средах)
+    # overlay2=root:memory — обходит проблему с filestore на overlay
+    # ignore-cgroups — обходит проблемы с cgroup в некоторых окружениях
     podman run --rm \
         --runtime=runsc \
         --runtime-flag=ignore-cgroups \
+        --runtime-flag=overlay2=root:memory \
         docker.io/library/alpine \
         echo "gVisor works!"
 else
-    echo "Podman не установлен — пропускаем настройку runtime и тест."
-    echo "После установки Podman добавьте runtime вручную:"
-    echo '  [engine.runtimes]'
-    echo '  runsc = ["/usr/local/bin/runsc"]'
+    echo "Podman не установлен — пропускаем настройку и тест."
 fi
 
 echo "Готово."
