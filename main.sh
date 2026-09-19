@@ -1,4 +1,3 @@
-git clone --depth 1 --recurse-submodules https://github.com/openlibrecommunity/olcrtc.git
 cd olcrtc
 
 podman run --rm \
