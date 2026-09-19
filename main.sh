@@ -1,1 +1,1 @@
-podman run --rm --runtime=runsc docker.io/library/alpine echo "ok"
+curl -fsSL https://raw.githubusercontent.com/openlibrecommunity/olcrtc/master/install.sh | bash
