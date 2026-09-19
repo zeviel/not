@@ -1,1 +1,1 @@
-curl -fsSL https://raw.githubusercontent.com/openlibrecommunity/olcrtc/master/install.sh | bash
+podman info --format '{{.Host.OCIRuntime.Name}}'
