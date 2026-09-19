@@ -1,1 +1,3 @@
-podman info --format '{{.Host.OCIRuntime.Name}}'
+ulimit -n
+ulimit -Hn
+cat /proc/self/limits | grep "open files"
