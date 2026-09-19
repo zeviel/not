@@ -1,5 +1,7 @@
 cd olcrtc
 
+ulimit -n 65536
+
 podman run --rm \
   --runtime=crun \
   --ulimit nofile=65536:65536 \
