@@ -1,10 +1,4 @@
-apt-get -o DPkg::Lock::Timeout=600 update
-apt-get -o DPkg::Lock::Timeout=600 install -y ca-certificates git
-
-WPP_DIR="$(mktemp -d /root/wpp-install.XXXXXX)"
-git -c http.version=HTTP/1.1 clone --depth 1 --branch v2.3.6 \
-  https://github.com/POLESNIESOVETI12/web-panel-proxy.git "$WPP_DIR"
-
-cd "$WPP_DIR"
-chmod +x ./*.sh
-bash ./install-final.sh
+wget "https://github.com/p1neappleXpress/OpenFlux/releases/download/0.0.4/openflux-linux-arm64"
+sudo ./openflux-linux-arm64 --role=exit --mode=l3 \
+    --transport=yandex \
+    --url="https://boards.yandex.ru/whiteboard/?hash=d3cf401d147809302c35d2859a4d4e05"
